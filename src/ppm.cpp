@@ -1,4 +1,4 @@
-#include "ppm.h"
+#include "ppm.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -29,9 +29,9 @@ void write_to_ppm( std::string filename, std::vector<std::vector<std::vector<dou
 	file << std::endl;
 	file << "255";
 	file << std::endl;
-	for ( auto j = 0; j < pixels.size(); j++ )
+	for ( size_t j = 0; j < pixels.size(); j++ )
 	{
-		for ( auto i = 0; i < pixels[0].size(); i++ )
+		for ( size_t i = 0; i < pixels[0].size(); i++ )
 		{
 			r = pixels[j][i][0];
 			g = pixels[j][i][1];
