@@ -5,11 +5,18 @@
 #include <vector>
 #include <utility>
 #include <iostream>
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
 #include <glm/gtx/normal.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/gtx/vec_swizzle.hpp> 
 
 
+void vec3_print( glm::vec3 vector )
+{
+    std::cout << "[" << vector.x << ", " << vector.y << ", " << vector.z << "]" << std::endl;
+}
 
 class Ray
 {
@@ -39,6 +46,8 @@ public:
     {
         return std::nullopt;
     }
+
+    virtual void transform( glm::mat4 transform ){}
 };
 
 
@@ -48,12 +57,30 @@ public:
     glm::vec3 position;
     glm::vec3 look_at;
     glm::vec3 up;
+    glm::vec3 horizontal, vertical, upper_left_corner;
+    float aspect_ratio, viewport_height, viewport_width;
 
-    Camera(glm::vec3 pos, glm::vec3 look, glm::vec3 up_dir)
+    Camera(glm::vec3 pos, glm::vec3 look, glm::vec3 up_dir, float ratio)
     {
         position = pos;
-        look_at = glm::normalize(look);
+        look_at = look;
         up = glm::normalize(up_dir);
+        aspect_ratio = ratio;
+        viewport_height = 1.0; // might make this a parameter at some point...
+        viewport_width = aspect_ratio * viewport_height;
+        // temp variables
+        glm::vec3 w = glm::normalize(position - look_at);
+        glm::vec3 u = glm::normalize(glm::cross(up, w));
+        glm::vec3 v = glm::cross(w, u);
+        // arbitrary horizontal and vertical axes for our viewport
+        horizontal = viewport_width * u;
+        vertical = viewport_height * v;
+        upper_left_corner = position - (0.5f * horizontal) + (0.5f * vertical) - w;
+    }
+
+    Ray spawn_ray(float x, float y)
+    {
+        return Ray(position, upper_left_corner + x*horizontal - y*vertical - position);
     }
 
     ~Camera(){}
@@ -78,6 +105,14 @@ public:
         object_list.push_back( object );
     }
 
+    void apply_transform( glm::mat4 transform )
+    {
+        for ( Object *o : object_list )
+        {
+            o->transform( transform );
+        }
+    }
+
     std::vector<Object*> get_objects() // TODO: spatial data structure
     {
         return object_list;
@@ -100,7 +135,7 @@ public:
         material = color;
     }
 
-    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray)
+    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
     {
         glm::vec3 intersect_position(0, 0, 0); 
         glm::vec3 intersect_normal(0, 0, 0); 
@@ -119,6 +154,11 @@ public:
         return std::nullopt;
     }   
 
+    void transform( glm::mat4 transform ) override
+    {
+        center = glm::vec3( transform * glm::vec4(center, 1.0) );
+    }
+
     ~Sphere(){}
 };
 
@@ -126,22 +166,17 @@ class Triangle : public Object
 {
 public:
     glm::vec3 a, b, c, normal;
-    std::vector<glm::vec3> points;
 
     Triangle(glm::vec3 A, glm::vec3 B, glm::vec3 C, glm::vec3 mat)
     {
         a = A;
         b = B;
         c = C;
-        points.resize(3);
-        points[0] = a;
-        points[1] = b;
-        points[2] = c;
         normal = glm::triangleNormal(a, b, c); // TODO: make sure this normal is correct
         material = mat;
     }
 
-    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray)
+    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
     {
         glm::vec2 bary_coords(0, 0); 
         float distance = 0;
@@ -166,7 +201,14 @@ public:
             return std::optional<std::pair<glm::vec3, glm::vec3>>{ std::pair<glm::vec3, glm::vec3>{intersect_position, normal} };
         }
         return std::nullopt;
+    }
 
+    void transform( glm::mat4 transform ) override
+    {
+        a = glm::vec3( transform * glm::vec4(a, 1.0) );
+        b = glm::vec3( transform * glm::vec4(b, 1.0) );
+        c = glm::vec3( transform * glm::vec4(c, 1.0) );
+        normal = glm::vec3( transform * glm::vec4(normal, 1.0) );
     }
 
     ~Triangle(){}
@@ -182,12 +224,12 @@ public:
     {
         material = color;
         Triangle t1(top_left, top_right, bottom_right, material);
-        Triangle t2(top_left, bottom_left, bottom_right, material);
+        Triangle t2(top_left, bottom_right, bottom_left,  material);
         polygons.push_back( t1 );
         polygons.push_back( t2 );
     }
 
-    virtual std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray)
+    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
     {
         std::optional<std::pair<glm::vec3, glm::vec3>> intersects;
         for ( Triangle t : polygons )
@@ -201,8 +243,15 @@ public:
         return std::nullopt;
     }
 
-    ~Floor(){}
+    void transform( glm::mat4 transform ) override
+    {
+        for ( Triangle t : polygons )
+        {
+            t.transform( transform );
+        }
+    }
 
+    ~Floor(){}
     
 };
 

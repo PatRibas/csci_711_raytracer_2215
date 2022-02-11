@@ -50,6 +50,7 @@ int main(int argc, char **argv)
 	}
 
 	// init pixel array
+	double aspect_ratio = (double)width / (double)height;
 	std::vector<std::vector<std::vector<double>>> pixels;
 	std::vector<std::vector<double>> column;
 	for ( auto i = 0; i < width; i++ )
@@ -66,27 +67,21 @@ int main(int argc, char **argv)
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
 	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, glm::vec3(0.0, 0.0, 1.0) );
 	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, glm::vec3(1.0, 1.0, 0.0) );
-	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), 
-				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), 
-				 glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), 
-				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), glm::vec3(1.0, 0.0, 0.0));
-
+	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), // top left
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // top right
+				 glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), // bottom left
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), // bottom right
+				 glm::vec3(1.0, 0.0, 0.0)); // color
+	
 	glm::vec3 cam_pos = glm::vec3(0.0, 0.2, 2.0);
 	glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
 	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
-	Camera camera( cam_pos, look_at, up ); 
+	Camera camera( cam_pos, look_at, up, aspect_ratio ); 
 	scene.add_object( &glass_sphere );
 	scene.add_object( &solid_sphere );
 	scene.add_object( &floor );
 
 	// variable setup
-	double aspect_ratio = width / height;
-	double viewport_height = 2.0;
-	double viewport_width = viewport_height * aspect_ratio; 
-	double focal_length = 1.0;
-	glm::vec3 horizontal(viewport_width, 0, 0);
-	glm::vec3 vertical(0, viewport_width, 0);
-	glm::vec3 upper_left_corner = camera.position - horizontal*0.5f + vertical*0.5f - glm::vec3(0, 0, focal_length);
 	std::optional<std::pair<glm::vec3, glm::vec3>> intersection, closest_intersection;
 	glm::vec3 intersect_point, intersect_normal;
 	std::pair<glm::vec3, glm::vec3> container;
@@ -100,8 +95,8 @@ int main(int argc, char **argv)
 		{
 			// generate ray for the pixel we are on
 			float u = double(x) / (width-1);
-            float v = double(y) / (height-1);
-            Ray test_ray(camera.position, upper_left_corner + horizontal*u - vertical*v - camera.position);
+			float v = double(y) / (height-1);
+            Ray test_ray = camera.spawn_ray(u, v);
 			
 			// intersection tests
 			intersection = std::nullopt;
