@@ -3,11 +3,11 @@ This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
 # Assignment 3: Phong
 This is the basic image with Phong shading.
-![](./src/assn3_img.ppm)
+![](./src/assn3_img.png)
 This is Phong, with a second light source.
-![](./src/assn3_2_lights.ppm)
+![](./src/assn3_2_lights.png)
 This is the same image, with MSAA.
-![](./src/assn3_MSAA.ppm)
+![](./src/assn3_MSAA.png)
 
 # Assignment 2: Object Intersections
 This is the default image perspective.
