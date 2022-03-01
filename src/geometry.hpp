@@ -12,6 +12,21 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtx/vec_swizzle.hpp> 
 
+class Scene;
+class Ray;
+class Intersection;
+class Light;
+class Object;
+class Camera;
+class Scene;
+class Sphere;
+class Triangle;
+class Floor;
+
+class Material;
+class BasicMaterial;
+class PhongMaterial;
+
 
 void vec3_print( glm::vec3 vector )
 {
@@ -24,27 +39,68 @@ public:
     glm::vec3 origin;
     glm::vec3 direction;
 
-    Ray(glm::vec3 o, glm::vec3 d)
+    Ray(glm::vec3 origin, glm::vec3 direction)
     {
-        origin = o;
-        direction = glm::normalize(d);
+        this->origin = origin;
+        this->direction = glm::normalize(direction);
     }
 
     ~Ray(){}
 
 };
 
+class Intersection
+{
+private:
+    bool has_value;
+public:
+    glm::vec3 position;
+    glm::vec3 normal;
+
+    bool exists()
+    {
+        return has_value;
+    }
+
+    Intersection()
+    {
+        has_value = false;
+    }
+
+    Intersection(glm::vec3 position, glm::vec3 normal)
+    {
+        has_value = true;
+        this->position = position;
+        this->normal = normal;
+    }
+};
+
+class Light
+{
+public:
+    glm::vec3 color;
+    glm::vec3 position;
+    
+    Light( glm::vec3 color, glm::vec3 position )
+    {
+        this->color = color;
+        this-> position = position;
+    }
+};
+
 
 class Object
 {
 public:
-    glm::vec3 material;
+    Material *material;
+    std::string name;
 
     // Intersect should return vectors of the form:
     // (intersection_position, intersection_normal)
-    virtual std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray)
+    virtual Intersection intersect(const Ray &ray)
     {
-        return std::nullopt;
+        std::runtime_error("Should never call the Intersect function of the base material class!\n");
+        return Intersection();
     }
 
     virtual void transform( glm::mat4 transform ){}
@@ -90,6 +146,7 @@ class Scene
 {
 private: 
     std::vector<Object*> object_list;
+    std::vector<Light*> light_list;
     glm::vec3 sky_color;
 
 public:
@@ -100,9 +157,14 @@ public:
 
     ~Scene(){}
 
-    void add_object(Object* object)
+    void add_object(Object *object)
     {
         object_list.push_back( object );
+    }
+
+    void add_light(Light *light)
+    {
+        light_list.push_back( light );
     }
 
     void apply_transform( glm::mat4 transform )
@@ -113,12 +175,131 @@ public:
         }
     }
 
-    std::vector<Object*> get_objects() // TODO: spatial data structure
+    std::vector<std::pair<Object*, Intersection>> intersect_objects(Ray ray)
+    {
+        std::vector<std::pair<Object*, Intersection>> intersections;
+        
+        // TODO: spatial data structure
+        for ( Object *obj : object_list )
+        {
+            auto intersection = obj->intersect( ray );
+            if ( intersection.exists() )
+            {
+                intersections.push_back( std::make_pair(obj, intersection) );
+            }
+        }
+
+        return intersections;
+    }
+
+    std::vector<Object*> get_objects() 
     {
         return object_list;
     }
 
+    std::vector<Light*> get_lights() 
+    {
+        return light_list;
+    }
+
 };
+
+class Material
+{
+public:
+    virtual glm::vec3 get_color( Ray incoming_ray, glm::vec3 intersection, glm::vec3 normal, Object *current_object )
+    {
+        return glm::vec3(0.0, 0.0, 0.0);
+    }
+};
+
+class BasicMaterial : public Material
+{
+private:
+    glm::vec3 color;
+public: 
+    BasicMaterial( glm::vec3 color )
+    {
+        this->color = color;
+    }
+
+    glm::vec3 get_color( Ray incoming_ray, glm::vec3 intersection, glm::vec3 normal, Object *current_object ) override
+    {
+        return color;
+    }
+};
+
+class PhongMaterial : public Material
+{
+private:
+    Scene *scene;
+    glm::vec3 ambient_color;
+    glm::vec3 diffuse_color;
+    glm::vec3 specular_color;
+    float ka = 1.0;
+    float kd = 1.0;
+    float ks = 1.0;
+    float ke = 20.0;
+public: 
+    PhongMaterial( glm::vec3 ambient, glm::vec3 diffuse, glm::vec3 specular, Scene *world )
+    {
+        ambient_color = ambient;
+        diffuse_color = diffuse;
+        specular_color = specular;
+        scene = world;
+    }
+
+    glm::vec3 get_color( Ray incoming_ray, glm::vec3 intersection, glm::vec3 normal, Object *current_object ) override
+    {
+        glm::vec3 color(0.0, 0.0, 0.0);
+        auto lights = scene->get_lights();
+
+        for ( Light *light : lights )
+        {
+            // spawn shadow rays 
+            Ray shadow_ray(intersection, light->position - intersection);
+            auto intersections = scene->intersect_objects( shadow_ray );
+            bool lit = true;
+            for ( auto inter : intersections )
+            {
+                auto obj = std::get<0>(inter);
+                glm::vec3 obj_intersection = std::get<1>(inter).position;
+                auto intersection_dir = obj_intersection - intersection;
+                if ( obj != current_object && glm::dot(intersection_dir, shadow_ray.direction) > 0 )
+                {
+                    lit = false;
+                }
+            }
+            // color calculations
+            if ( lit )
+            {
+                glm::vec3 S = glm::normalize( light->position - intersection );
+                glm::vec3 N = glm::normalize( normal );
+                glm::vec3 R = glm::normalize( S - 2*(glm::dot(S,N))*N );
+                glm::vec3 V = -glm::normalize( incoming_ray.origin - incoming_ray.direction );
+                float lambertian = std::max(glm::dot(N, S), 0.0f);
+                color += diffuse_color * lambertian * kd;
+                if ( lambertian > 0.0f )
+                {
+                    color += specular_color * std::max((float)pow(glm::dot(R,V), ke), 0.0f) * ks;
+                }
+            }
+            color += ambient_color * ka;
+        }
+
+        // """ tone reproduction """
+        // make sure our values are clamped to [0, 255]
+        color.x = std::min(1.0f, color.x);
+        color.y = std::min(1.0f, color.y);
+        color.z = std::min(1.0f, color.z);
+
+        color.x = std::max(0.0f, color.x);
+        color.y = std::max(0.0f, color.y);
+        color.z = std::max(0.0f, color.z);
+
+        return color;
+    }
+}; 
 
 class Sphere : public Object 
 {
@@ -128,14 +309,22 @@ private:
     // material is inherited from Object
 
 public:
-    Sphere(glm::vec3 point, double r, glm::vec3 color)
+    Sphere(glm::vec3 point, double r, Material *mat)
     {
         center = point;
         radius = r;
-        material = color;
+        material = mat;
     }
 
-    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
+    Sphere(glm::vec3 point, double r, Material *mat, std::string name)
+    {
+        center = point;
+        radius = r;
+        material = mat;
+        this->name = name;
+    }
+
+    Intersection intersect(const Ray &ray) override
     {
         glm::vec3 intersect_position(0, 0, 0); 
         glm::vec3 intersect_normal(0, 0, 0); 
@@ -149,9 +338,9 @@ public:
         
         if ( intersects )
         {
-            return std::optional<std::pair<glm::vec3, glm::vec3>>{ std::pair<glm::vec3, glm::vec3>{intersect_position, intersect_normal} };
+            return Intersection(intersect_position, intersect_normal);
         }
-        return std::nullopt;
+        return Intersection();
     }   
 
     void transform( glm::mat4 transform ) override
@@ -167,7 +356,7 @@ class Triangle : public Object
 public:
     glm::vec3 a, b, c, normal;
 
-    Triangle(glm::vec3 A, glm::vec3 B, glm::vec3 C, glm::vec3 mat)
+    Triangle(glm::vec3 A, glm::vec3 B, glm::vec3 C, Material *mat)
     {
         a = A;
         b = B;
@@ -176,7 +365,7 @@ public:
         material = mat;
     }
 
-    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
+    Intersection intersect(const Ray &ray) override
     {
         glm::vec2 bary_coords(0, 0); 
         float distance = 0;
@@ -198,9 +387,9 @@ public:
             v = bary_coords.y;
             glm::vec3 intersect_position( (1-u-v)*a + u*b + v*c );
 
-            return std::optional<std::pair<glm::vec3, glm::vec3>>{ std::pair<glm::vec3, glm::vec3>{intersect_position, normal} };
+            return Intersection(intersect_position, normal);
         }
-        return std::nullopt;
+        return Intersection();
     }
 
     void transform( glm::mat4 transform ) override
@@ -220,27 +409,27 @@ private:
     std::vector<Triangle> polygons;
 
 public:
-    Floor(glm::vec3 top_left, glm::vec3 top_right, glm::vec3 bottom_left, glm::vec3 bottom_right, glm::vec3 color)
+    Floor(glm::vec3 top_left, glm::vec3 top_right, glm::vec3 bottom_left, glm::vec3 bottom_right, Material *mat)
     {
-        material = color;
+        material = mat;
         Triangle t1(top_left, top_right, bottom_right, material);
         Triangle t2(top_left, bottom_right, bottom_left,  material);
         polygons.push_back( t1 );
         polygons.push_back( t2 );
+        this->name = "floor";
     }
 
-    std::optional<std::pair<glm::vec3, glm::vec3>> intersect(const Ray &ray) override
+    Intersection intersect(const Ray &ray) override
     {
-        std::optional<std::pair<glm::vec3, glm::vec3>> intersects;
         for ( Triangle t : polygons )
         {
-            intersects = t.intersect(ray);
-            if ( intersects.has_value() )
+            auto intersection = t.intersect(ray);
+            if ( intersection.exists() )
             {
-                return intersects;
+                return intersection;
             }
         }        
-        return std::nullopt;
+        return Intersection();
     }
 
     void transform( glm::mat4 transform ) override

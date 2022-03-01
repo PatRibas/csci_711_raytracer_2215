@@ -5,6 +5,8 @@
 #include <vector>
 #include <optional>
 #include <utility>
+#include <cstdlib>
+#include <ctime>
 
 // GLM includes
 #include <glm/glm.hpp>
@@ -13,7 +15,6 @@
 // personal includes
 #include "ppm.hpp"
 #include "geometry.hpp"
-
 
 
 int main(int argc, char **argv)
@@ -26,6 +27,7 @@ int main(int argc, char **argv)
 				  << "but did not receive image dimensions!" << std::endl;
 		std::exit(1);
 	}
+
 	int width, height;
 	std::string filename = "img.ppm";
 	for ( auto i = 1; i < argc; i++ )
@@ -44,7 +46,7 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			std::string command =  argv[i] ;
+			std::string command = argv[i] ;
 			std::cout << "command \"" << command << "\": does not exist" << std::endl;
 		}
 	}
@@ -65,28 +67,41 @@ int main(int argc, char **argv)
 
 	// scene setup
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
-	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, glm::vec3(0.0, 0.0, 1.0) );
-	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, glm::vec3(1.0, 1.0, 0.0) );
+
+	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.1), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene );
+	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, &glass_material, "glass" );
+
+	PhongMaterial solid_material( glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
+	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, &solid_material, "solid" );
+
+	PhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), // top left
 				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // top right
 				 glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), // bottom left
 				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), // bottom right
-				 glm::vec3(1.0, 0.0, 0.0)); // color
+				 &floor_material); // color
 	
 	glm::vec3 cam_pos = glm::vec3(0.0, 0.2, 2.0);
 	glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
 	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
 	Camera camera( cam_pos, look_at, up, aspect_ratio ); 
+
+	Light light1( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 20.0, 20.0) );
+	Light light2( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 2.0, 0.0) );
+
 	scene.add_object( &glass_sphere );
 	scene.add_object( &solid_sphere );
 	scene.add_object( &floor );
+	scene.add_light( &light1 );
+	//scene.add_light( &light2 );
 
 	// variable setup
-	std::optional<std::pair<glm::vec3, glm::vec3>> intersection, closest_intersection;
-	glm::vec3 intersect_point, intersect_normal;
-	std::pair<glm::vec3, glm::vec3> container;
+	Intersection closest_intersection;
 	double closest_intersect_dist = 0;
 	Object *closest_object = nullptr;
+	uint16_t num_samples = 1;
+
+	std::srand(std::time(nullptr)); 
 
 	// ray tracing!
 	for ( auto y = 0; y < height; y++ )
@@ -94,43 +109,50 @@ int main(int argc, char **argv)
 		for ( auto x = 0; x < width; x++ )
 		{
 			// generate ray for the pixel we are on
-			float u = double(x) / (width-1);
-			float v = double(y) / (height-1);
-            Ray test_ray = camera.spawn_ray(u, v);
-			
-			// intersection tests
-			intersection = std::nullopt;
-			closest_intersection = std::nullopt;
-			closest_object = nullptr;
-			for ( Object *obj : scene.get_objects() )
+
+			for ( auto sample = 0; sample < num_samples; sample++ )
 			{
-				intersection = obj->intersect( test_ray );
-				if ( intersection.has_value() )
+				auto sample_u = (x + std::rand()/(RAND_MAX + 1.0))/(width + 1.0);
+				auto sample_v = (y + std::rand()/(RAND_MAX + 1.0))/(height + 1.0);
+				Ray test_ray = camera.spawn_ray(sample_u, sample_v);
+				
+				// intersection tests
+				closest_intersection = Intersection();
+				closest_object = nullptr;
+
+				auto intersections = scene.intersect_objects( test_ray );
+
+				for ( uint32_t i = 0; i < intersections.size(); i++ )
 				{
-					container = intersection.value();
-					intersect_point = std::get<0>(container); // TODO: record this for just closest object
-					intersect_normal = std::get<1>(container);
-					if ( closest_object == nullptr || glm::distance(camera.position, intersect_point) < closest_intersect_dist  )
+					auto temp_container = intersections[i];
+					auto object = std::get<0>(temp_container);
+					auto intersection = std::get<1>(temp_container);
+					auto intersect_point = intersection.position;
+					//auto intersect_normal = intersection.normal; 
+					if ( !closest_intersection.exists() || glm::distance(camera.position, intersect_point) < closest_intersect_dist  )
 					{
 						closest_intersection = intersection;
 						closest_intersect_dist = glm::distance(camera.position, intersect_point);
-						closest_object = obj;
+						closest_object = object;
 					}
 				}
-			}
 
-			// draw to the pixel!
-			if ( closest_intersection.has_value() )
-			{
-				pixels[y][x][0] = closest_object->material.x;
-				pixels[y][x][1] = closest_object->material.y;
-				pixels[y][x][2] = closest_object->material.z;
-			}
-			else
-			{
-				pixels[y][x][0] = (135.0 + ((255.0 - 135.0) * ((double)y / (double)height))) / 255.0;
-				pixels[y][x][1] = (206.0 + ((255.0 - 206.0) * ((double)y / (double)height))) / 255.0;
-				pixels[y][x][2] = (235.0 + ((255.0 - 235.0) * ((double)y / (double)height))) / 255.0;
+				// draw to the pixel!
+				if ( closest_intersection.exists() )
+				{
+					auto intersect_point = closest_intersection.position;
+					auto intersect_normal = closest_intersection.normal;
+					glm::vec3 color = closest_object->material->get_color(test_ray, intersect_point, intersect_normal, closest_object);
+					pixels[y][x][0] += color.x / num_samples;
+					pixels[y][x][1] += color.y / num_samples;
+					pixels[y][x][2] += color.z / num_samples;
+				}
+				else
+				{
+					pixels[y][x][0] += (135.0 + ((255.0 - 135.0) * ((double)y / (double)height))) / 255.0 / num_samples;
+					pixels[y][x][1] += (206.0 + ((255.0 - 206.0) * ((double)y / (double)height))) / 255.0 / num_samples;
+					pixels[y][x][2] += (235.0 + ((255.0 - 235.0) * ((double)y / (double)height))) / 255.0 / num_samples;
+				}
 			}
 		}
 	}
