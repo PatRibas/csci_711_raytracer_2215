@@ -68,19 +68,23 @@ int main(int argc, char **argv)
 	// scene setup
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
 
+
 	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.1), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, &glass_material, "glass" );
 
 	PhongMaterial solid_material( glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, &solid_material, "solid" );
 
-	PhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
-	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), // top left
-				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // top right
-				 glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), // bottom left
-				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), // bottom right
+	CheckeredPhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
+	CheckeredPhongMaterial floor_material_1( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
+	CheckeredPhongMaterial floor_material_2( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
+	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), // top left : ACTUALLY TOP LEFT
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), // top right : ACTUALLY TOP RIGHT 
+				 glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), // bottom left : ACTUALLY BOTTOM LEFT
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // bottom right : ACTUALLY BOTTOM RIGHT
 				 &floor_material); // color
-	
+				 
+
 	glm::vec3 cam_pos = glm::vec3(0.0, 0.2, 2.0);
 	glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
 	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
@@ -94,12 +98,41 @@ int main(int argc, char **argv)
 	scene.add_object( &floor );
 	scene.add_light( &light1 );
 	//scene.add_light( &light2 );
+/*
+	SoftPhongMaterial ground( glm::vec3(0.1, 0.1, 0.1), glm::vec3(0.0, 1.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
+	SoftPhongMaterial trimat( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 
+	Triangle shadow_caster( glm::vec3(0.0, -0.3, 0.0 - 0.5), 
+							glm::vec3(-0.5,-0.3, 0.5 - 0.5),
+							glm::vec3(0.5, -0.3, 0.5 - 0.5),
+							&trimat );
+	Floor floor( glm::vec3(0.0 - 1.5, -0.7, -0.5 + 1.5), // top left
+				 glm::vec3(0.0 + 1.5, -0.7, -0.5 + 1.5), // top right
+				 glm::vec3(0.0 - 1.5, -0.7, -0.5 - 1.5), // bottom left
+				 glm::vec3(0.0 + 1.5, -0.7, -0.5 - 1.5), // bottom right
+				 &ground); // color
+
+	SphereLight lightsource( glm::vec3(0.0, 0.5, 0.0), 0.1, glm::vec3(1.0, 1.0, 1.0) );
+	
+	glm::vec3 cam_pos = glm::vec3(0.0, 0.2, 2.0);
+	glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
+	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
+	Camera camera( cam_pos, look_at, up, aspect_ratio ); 
+
+	scene.add_geometry_light( &lightsource );
+	scene.add_object( &floor );
+	//scene.add_object( &fake_light );
+	scene.add_object( &shadow_caster );
+*/
+
+	/*
+	 * Begin Ray casting main!
+	 */
 	// variable setup
 	Intersection closest_intersection;
 	double closest_intersect_dist = 0;
 	Object *closest_object = nullptr;
-	uint16_t num_samples = 1;
+	uint16_t num_samples = 10;
 
 	std::srand(std::time(nullptr)); 
 
@@ -120,7 +153,7 @@ int main(int argc, char **argv)
 				closest_intersection = Intersection();
 				closest_object = nullptr;
 
-				auto intersections = scene.intersect_objects( test_ray );
+				auto intersections = scene.intersect_geometry( test_ray );
 
 				for ( uint32_t i = 0; i < intersections.size(); i++ )
 				{
@@ -140,18 +173,17 @@ int main(int argc, char **argv)
 				// draw to the pixel!
 				if ( closest_intersection.exists() )
 				{
-					auto intersect_point = closest_intersection.position;
-					auto intersect_normal = closest_intersection.normal;
-					glm::vec3 color = closest_object->material->get_color(test_ray, intersect_point, intersect_normal, closest_object);
+					glm::vec3 color = closest_object->get_color(test_ray, closest_intersection, closest_object);
 					pixels[y][x][0] += color.x / num_samples;
 					pixels[y][x][1] += color.y / num_samples;
 					pixels[y][x][2] += color.z / num_samples;
 				}
 				else
 				{
-					pixels[y][x][0] += (135.0 + ((255.0 - 135.0) * ((double)y / (double)height))) / 255.0 / num_samples;
-					pixels[y][x][1] += (206.0 + ((255.0 - 206.0) * ((double)y / (double)height))) / 255.0 / num_samples;
-					pixels[y][x][2] += (235.0 + ((255.0 - 235.0) * ((double)y / (double)height))) / 255.0 / num_samples;
+					auto color = scene.get_sky_color(x, y, width, height);					
+					pixels[y][x][0] += color.x / num_samples;
+					pixels[y][x][1] += color.y / num_samples;
+					pixels[y][x][2] += color.z / num_samples;
 				}
 			}
 		}

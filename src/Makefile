@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++17 -Wall -Werror 
+CFLAGS=-std=c++17 -Wall -Werror -g 
 FILES=main.cpp ppm.cpp ppm.hpp geometry.hpp  
 FILENAME=-o raytracer
 
