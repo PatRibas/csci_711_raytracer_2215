@@ -1,7 +1,7 @@
 # CSCI 711: Global Illumination
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
-# Assignment 3: Phong
+# Assignment 4: Texture
 Here is the basic assignment:
 ![](./src/assn4_img.png)
 
