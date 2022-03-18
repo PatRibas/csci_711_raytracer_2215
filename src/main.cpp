@@ -171,20 +171,18 @@ int main(int argc, char **argv)
 				}
 
 				// draw to the pixel!
+				glm::vec3 color;
 				if ( closest_intersection.exists() )
 				{
-					glm::vec3 color = closest_object->get_color(test_ray, closest_intersection, closest_object);
-					pixels[y][x][0] += color.x / num_samples;
-					pixels[y][x][1] += color.y / num_samples;
-					pixels[y][x][2] += color.z / num_samples;
+					color = closest_object->get_color(test_ray, closest_intersection, closest_object);
 				}
 				else
 				{
-					auto color = scene.get_sky_color(x, y, width, height);					
-					pixels[y][x][0] += color.x / num_samples;
-					pixels[y][x][1] += color.y / num_samples;
-					pixels[y][x][2] += color.z / num_samples;
+					color = scene.get_sky_color(x, y, width, height);					
 				}
+				pixels[y][x][0] += color.x / num_samples;
+				pixels[y][x][1] += color.y / num_samples;
+				pixels[y][x][2] += color.z / num_samples;
 			}
 		}
 	}
