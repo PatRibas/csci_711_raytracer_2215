@@ -2,6 +2,10 @@
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
 # Assignment 3: Phong
+Here is the basic assignment:
+![](./src/assn4_img.png)
+
+# Assignment 3: Phong
 This is the basic image with Phong shading.
 ![](./src/assn3_img.png)
 This is Phong, with a second light source.
