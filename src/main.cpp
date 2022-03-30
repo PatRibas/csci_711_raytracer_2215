@@ -69,10 +69,10 @@ int main(int argc, char **argv)
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
 
 
-	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.1), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene );
+	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.0f, 0.0f );
 	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, &glass_material, "glass" );
 
-	PhongMaterial solid_material( glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
+	PhongMaterial solid_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.75f, 0.0f );
 	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, &solid_material, "solid" );
 
 	CheckeredPhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
@@ -174,11 +174,12 @@ int main(int argc, char **argv)
 				glm::vec3 color;
 				if ( closest_intersection.exists() )
 				{
-					color = closest_object->get_color(test_ray, closest_intersection, closest_object);
+					color = closest_object->get_color(test_ray, closest_intersection, closest_object, 5);
 				}
 				else
 				{
-					color = scene.get_sky_color(x, y, width, height);					
+					//color = scene.get_sky_color(x, y, width, height);		
+					color = scene.get_sky_color(1, 1, 800, 600);					
 				}
 				pixels[y][x][0] += color.x / num_samples;
 				pixels[y][x][1] += color.y / num_samples;

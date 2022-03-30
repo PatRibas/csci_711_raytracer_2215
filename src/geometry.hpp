@@ -104,18 +104,9 @@ public:
 
     // Intersect should return vectors of the form:
     // (intersection_position, intersection_normal)
-    virtual Intersection intersect(const Ray &ray)
-    {
-        std::runtime_error("Should never call the Intersect function of the base Object class!\n");
-        return Intersection();
-    }
+    virtual Intersection intersect(const Ray &ray) = 0;
 
-    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object )
-    {
-        std::runtime_error("Should never call the get_color function of the base Object class!\n");
-        return glm::vec3(0.0, 0.0, 0.0);
-    }
-
+    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) = 0;
     virtual void transform( glm::mat4 transform ){}
 };
 
@@ -125,22 +116,10 @@ public:
     Object *geometry; 
     glm::vec3 position;
 
-    virtual glm::vec3 sample_geometry()
-    {
-        std::runtime_error("Should never call sample_geometry from the base GeometryLight class!");
-        return glm::vec3(0.0, 0.0, 0.0);
-    }
+    virtual glm::vec3 sample_geometry() = 0;
 
-    virtual Intersection intersect(const Ray &ray)
-    {
-        std::runtime_error("Should never call the Intersect function of the base GeometryLight class!\n");
-        return Intersection();
-    }
-
-    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object )
-    {
-        return glm::vec3(0.0, 0.0, 0.0);
-    }
+    virtual Intersection intersect(const Ray &ray) = 0;
+    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) = 0;
 };
 
 class SphereLight : public GeometryLight, public Object
@@ -196,7 +175,7 @@ public:
         return Intersection();
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
         return color;
     }
@@ -305,7 +284,7 @@ public:
         for ( Object *obj : object_list )
         {
             auto intersection = obj->intersect( ray );
-            if ( intersection.exists() )
+            if ( intersection.exists() && glm::dot( intersection.position - ray.origin, ray.direction ) > 0 )
             {
                 intersections.push_back( std::make_pair(obj, intersection) );
             }
@@ -352,7 +331,7 @@ public:
 class Material
 {
 public:
-    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object )
+    virtual glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth )
     {
         return glm::vec3(0.0, 0.0, 0.0);
     }
@@ -368,7 +347,7 @@ public:
         this->color = color;
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
         return color;
     }
@@ -377,24 +356,21 @@ public:
 class PhongMaterial : public Material
 {
 private:
-    Scene *scene;
     glm::vec3 ambient_color;
     glm::vec3 diffuse_color;
     glm::vec3 specular_color;
+    Scene *scene;
     float ka = 1.0;
     float kd = 1.0;
     float ks = 1.0;
     float ke = 20.0;
+    float kr, kt;
 public: 
-    PhongMaterial( glm::vec3 ambient, glm::vec3 diffuse, glm::vec3 specular, Scene *world )
-    {
-        ambient_color = ambient;
-        diffuse_color = diffuse;
-        specular_color = specular;
-        scene = world;
-    }
+    PhongMaterial( glm::vec3 ambient_color, glm::vec3 diffuse_color, glm::vec3 specular_color, Scene *scene, float kr, float kt ):
+        ambient_color(ambient_color), diffuse_color(diffuse_color), specular_color(specular_color), scene(scene), kr(kr), kt(kt)
+    {}
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
         glm::vec3 color(0.0, 0.0, 0.0);
         auto lights = scene->get_lights();
@@ -432,6 +408,58 @@ public:
             }
 
             color += ambient_color * ka;
+            // color is direct illumination
+            // so we need to calculate indirect illumination
+            int reflects = 1; // TODO: transmission
+            glm::vec3 ind_color;
+            if ( reflects && depth > 0 && kr > 0 )
+            {
+                glm::vec3 reflection_ray = glm::reflect(incoming_ray.direction, glm::faceforward(intersection.normal, intersection.normal, incoming_ray.direction));
+                Ray outgoing_ray(intersection.position, reflection_ray);
+                auto intersections = scene->intersect_geometry( outgoing_ray );
+                if ( intersections.size() > 0 ) 
+                {
+                    Intersection closest_intersection;
+                    double closest_intersect_dist = 0;
+                    Object *closest_object = nullptr;
+                    for ( uint32_t i = 0; i < intersections.size(); i++ )
+                    {
+                        auto temp_container = intersections[i];
+                        auto object = std::get<0>(temp_container);
+                        if ( object == current_object )
+                        {
+                            continue;
+                        }
+                        auto next_intersection = std::get<1>(temp_container);
+                        if ( !closest_intersection.exists() || glm::distance(intersection.position, next_intersection.position) < closest_intersect_dist )
+                        {
+                            closest_intersection = next_intersection;
+                            closest_intersect_dist = glm::distance(intersection.position, next_intersection.position);
+                            closest_object = object;
+                        }
+                    }
+                    if ( closest_object != nullptr )
+                    { 
+                        ind_color = closest_object->get_color(outgoing_ray, closest_intersection, closest_object, depth - 1);
+                    }
+                    else 
+                    {
+                        ind_color = scene->get_sky_color(1, 1, 800, 600);
+                    }
+                }
+                else 
+                {
+                    ind_color = scene->get_sky_color(1, 1, 800, 600);
+                }
+                color = color + kr*ind_color;
+            }
+            else if ( depth > 0 && kt > 0 )
+            {
+                glm::vec3 ind_color;
+                color = color + kt*ind_color;
+            }
+
+            return color;
         }
 
         // """ tone reproduction """
@@ -471,7 +499,7 @@ public:
         this->checkernum = checker_num;
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
         glm::vec3 color(0.0, 0.0, 0.0);
         auto lights = scene->get_lights();
@@ -570,7 +598,7 @@ public:
         scene = world;
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
         glm::vec3 color(0.0, 0.0, 0.0);
         auto lights = scene->get_geometry_lights();
@@ -673,9 +701,9 @@ public:
         center = glm::vec3( transform * glm::vec4(center, 1.0) );
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
-        return material->get_color( incoming_ray, intersection, current_object );
+        return material->get_color( incoming_ray, intersection, current_object, depth );
     }
 
     ~Sphere(){}
@@ -740,9 +768,9 @@ public:
         normal = glm::vec3( transform * glm::vec4(normal, 1.0) );
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
-        return material->get_color( incoming_ray, intersection, current_object );
+        return material->get_color( incoming_ray, intersection, current_object, depth );
     }
 
     ~Triangle(){}
@@ -789,9 +817,9 @@ public:
         }
     }
 
-    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object ) override
+    glm::vec3 get_color( Ray incoming_ray, Intersection intersection, Object *current_object, int depth ) override
     {
-        return material->get_color( incoming_ray, intersection, current_object );
+        return material->get_color( incoming_ray, intersection, current_object, depth );
     }
 
     ~Floor(){}
