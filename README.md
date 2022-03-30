@@ -1,6 +1,12 @@
 # CSCI 711: Global Illumination
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
+# Assignment 4: Reflection
+Here is the basic assignment:
+![](./src/assn5_img.png)
+Here is the same assignment, but with the sphere moved so you can see the other reflection better:
+![](./src/assn5_img_moved.png)
+
 # Assignment 4: Texture
 Here is the basic assignment:
 ![](./src/assn4_img.png)
