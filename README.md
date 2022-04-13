@@ -1,6 +1,10 @@
 # CSCI 711: Global Illumination
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
+Assignment 6: Refraction
+Here is the (broken) basic assignment:
+![](./src/assn6_img.png)
+
 # Assignment 5: Reflection
 Here is the basic assignment:
 ![](./src/assn5_img.png)

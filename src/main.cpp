@@ -69,17 +69,17 @@ int main(int argc, char **argv)
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
 
 
-	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.0f, 0.0f );
+	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.0f, 0.9f, 0.9f );
 	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, &glass_material, "glass" );
 
-	PhongMaterial solid_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.75f, 0.0f );
-	Sphere solid_sphere( glm::vec3(0.7, -0.2, -1.0), 0.5, &solid_material, "solid" );
+	PhongMaterial solid_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.75f, 0.0f, 0.0f );
+	Sphere solid_sphere( glm::vec3(0.9, -0.2, -1.0), 0.5, &solid_material, "solid" );
 
 	CheckeredPhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
 	CheckeredPhongMaterial floor_material_1( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
 	CheckeredPhongMaterial floor_material_2( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
-	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 - 1.5), // top left : ACTUALLY TOP LEFT
-				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 1.5), // top right : ACTUALLY TOP RIGHT 
+	Floor floor( glm::vec3(0.75 - 1.5, -0.7, -0.5 - 4.5), // top left : ACTUALLY TOP LEFT
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 4.5), // top right : ACTUALLY TOP RIGHT 
 				 glm::vec3(0.75 - 1.5, -0.7, -0.5 + 1.5), // bottom left : ACTUALLY BOTTOM LEFT
 				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // bottom right : ACTUALLY BOTTOM RIGHT
 				 &floor_material); // color
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
 				glm::vec3 color;
 				if ( closest_intersection.exists() )
 				{
-					color = closest_object->get_color(test_ray, closest_intersection, closest_object, 5);
+					color = closest_object->get_color(test_ray, closest_intersection, closest_object, 5, 0);
 				}
 				else
 				{
