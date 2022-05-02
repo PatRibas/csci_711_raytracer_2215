@@ -1,7 +1,14 @@
 # CSCI 711: Global Illumination
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
-# Assignment 7: Refraction
+# Advanced Tone Reproduction
+Ward, medium light wattage:
+![](./src/ward_mid.png)
+Adaptive, medium light wattage:
+![](./src/adaptive_mid.png)
+
+
+# Assignment 7: Tone Reproduction
 Ward, low light wattage:
 ![](./src/ward_low.png)
 Ward, medium light wattage:

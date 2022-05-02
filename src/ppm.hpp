@@ -8,10 +8,11 @@ enum Mode // tone reproduction mode
 {
 	NONE, 
 	WARD,
-	REINHARD
+	REINHARD,
+    ADAPTIVE
 };
 
-std::vector<int> color_to_int( glm::vec3 in_color, float lbar, Mode mode )
+std::vector<int> color_to_int( glm::vec3 in_color, float lbar, float lwmax, Mode mode )
 {
 	std::vector<int> out_color;
     double ldmax = 255.0f;
@@ -53,6 +54,17 @@ std::vector<int> color_to_int( glm::vec3 in_color, float lbar, Mode mode )
             out_color.push_back( reflectance * ldmax );
         }
     }
+    else if ( mode == ADAPTIVE )
+    {
+        ldmax = (1024.0f + 512.0f)/2;
+        float lw = (0.27 * in_color.r) + (0.67 * in_color.g) + (0.06 * in_color.b);
+        float ld = (1.0f/std::log10(lwmax + 1.0f)) * (std::log(lw + 1.0f) / std::log(2.0f+((std::pow(lw/lwmax, std::log(0.85)/std::log(0.5)))*8.0f))) * ldmax;
+        std::cout << ld << std::endl;
+        for ( int i = 0; i < 3; i++ )
+        {
+            out_color.push_back( in_color[i] * ld );
+        }
+    }
 
 	return out_color;
 }
@@ -77,6 +89,7 @@ void write_to_ppm( std::string filename, std::vector<std::vector<std::vector<dou
 	file << "255";
 	file << std::endl;
     float lbar = 0.0;
+    float lwmax = 0.0f;
     for ( size_t j = 0; j < pixels.size(); j++ )
 	{
 		for ( size_t i = 0; i < pixels[0].size(); i++ )
@@ -86,8 +99,10 @@ void write_to_ppm( std::string filename, std::vector<std::vector<std::vector<dou
 			b = pixels[j][i][2];
             float luminance = (0.27 * r) + (0.67 * g) + (0.06 * b);
 			lbar += std::log(0.0001 + luminance);
+            lwmax = std::max(lwmax, luminance);
 		}
     }
+    /*
     std::cout << lbar << std::endl;
     lbar /= pixels.size();
     std::cout << lbar << std::endl;
@@ -95,6 +110,7 @@ void write_to_ppm( std::string filename, std::vector<std::vector<std::vector<dou
     std::cout << lbar << std::endl;
     lbar = std::exp(lbar);
     std::cout << lbar << std::endl;
+    */
 
 	for ( size_t j = 0; j < pixels.size(); j++ )
 	{
@@ -104,7 +120,7 @@ void write_to_ppm( std::string filename, std::vector<std::vector<std::vector<dou
 			g = pixels[j][i][1];
 			b = pixels[j][i][2];
 			glm::vec3 color(r, g, b);
-			auto pixel_color = color_to_int( color, lbar, mode );
+			auto pixel_color = color_to_int( color, lbar, lwmax, mode );
 			file << ( pixel_color[0] ) << " ";
 			file << ( pixel_color[1] ) << " ";
 			file << ( pixel_color[2] ) << " ";

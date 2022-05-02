@@ -50,6 +50,10 @@ int main(int argc, char **argv)
 		{
 			mode = REINHARD;
 		}
+		else if ( command == "adaptive" )
+		{
+			mode = ADAPTIVE;
+		}
 		else
 		{
 			std::cout << "command \"" << command << "\": does not exist" << std::endl;
@@ -96,7 +100,7 @@ int main(int argc, char **argv)
 	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
 	Camera camera( cam_pos, look_at, up, aspect_ratio ); 
 
-	Light light1( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 3.0, 3.0), 5.0f ); // 5, 50, 250
+	Light light1( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 3.0, 3.0), 50.0f ); // 5, 50, 250
 	//Light light2( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 2.0, 0.0), 1.0f );
 
 	scene.add_object( &glass_sphere );
