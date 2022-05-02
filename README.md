@@ -1,8 +1,23 @@
 # CSCI 711: Global Illumination
 This repo hosts code related to the CSCI 711 project of writing a ray tracer.
 
-Assignment 6: Refraction
-Here is the (broken) basic assignment:
+#Assignment 7: Refraction
+Ward, low light wattage:
+![](./src/ward_low.png)
+Ward, medium light wattage:
+![](./src/ward_mid.png)
+Ward, high light wattage:
+![](./src/ward_high.png)
+Reinhard, low light wattage:
+![](./src/reinhard_low.png)
+Reinhard, medium light wattage:
+![](./src/reinhard_mid.png)
+Reinhard, high light wattage:
+![](./src/reinhard_high.png)
+
+
+#Assignment 6: Refraction
+Here is the basic assignment:
 ![](./src/assn6_img.png)
 
 # Assignment 5: Reflection

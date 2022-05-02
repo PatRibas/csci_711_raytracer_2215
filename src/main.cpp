@@ -30,8 +30,10 @@ int main(int argc, char **argv)
 
 	int width, height;
 	std::string filename = "img.ppm";
+	Mode mode = NONE;
 	for ( auto i = 1; i < argc; i++ )
 	{
+		std::string command = argv[i];
 		if ( i == 1 )
 		{
 			width = std::stoi(argv[i]);
@@ -40,13 +42,16 @@ int main(int argc, char **argv)
 		{
 			height = std::stoi(argv[i]);
 		}
-		else if ( i == 3 )
+		else if ( command == "ward" )
 		{
-			filename = argv[i];
+			mode = WARD;
+		}
+		else if ( command == "reinhard" )
+		{
+			mode = REINHARD;
 		}
 		else
 		{
-			std::string command = argv[i] ;
 			std::cout << "command \"" << command << "\": does not exist" << std::endl;
 		}
 	}
@@ -68,11 +73,12 @@ int main(int argc, char **argv)
 	// scene setup
 	Scene scene( glm::vec3(135.0, 206.0, 235.0) );
 
+	//############################# SPHERES SETUP #####################################
 
-	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.0f, 0.9f, 0.9f );
+	PhongMaterial glass_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.0f, 0.9f, 0.95f );
 	Sphere glass_sphere( glm::vec3(0.0, 0.2, 0.0), 0.5, &glass_material, "glass" );
 
-	PhongMaterial solid_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.75f, 0.0f, 0.0f );
+	PhongMaterial solid_material( glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene, 0.75f, 0.0f, 0.0f );
 	Sphere solid_sphere( glm::vec3(0.9, -0.2, -1.0), 0.5, &solid_material, "solid" );
 
 	CheckeredPhongMaterial floor_material( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), 5, glm::vec3(1.0, 1.0, 1.0), &scene );
@@ -90,29 +96,43 @@ int main(int argc, char **argv)
 	glm::vec3 up = glm::vec3(0.0, 1.0, 0.0);
 	Camera camera( cam_pos, look_at, up, aspect_ratio ); 
 
-	Light light1( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 20.0, 20.0) );
-	Light light2( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 2.0, 0.0) );
+	Light light1( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 3.0, 3.0), 5.0f ); // 5, 50, 250
+	//Light light2( glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 2.0, 0.0), 1.0f );
 
 	scene.add_object( &glass_sphere );
 	scene.add_object( &solid_sphere );
 	scene.add_object( &floor );
 	scene.add_light( &light1 );
 	//scene.add_light( &light2 );
-/*
+	
+
+	/*
+	//############################# SHADOWS SETUP #####################################
 	SoftPhongMaterial ground( glm::vec3(0.1, 0.1, 0.1), glm::vec3(0.0, 1.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 	SoftPhongMaterial trimat( glm::vec3(0.1, 0.0, 0.0), glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), &scene );
 
 	Triangle shadow_caster( glm::vec3(0.0, -0.3, 0.0 - 0.5), 
 							glm::vec3(-0.5,-0.3, 0.5 - 0.5),
 							glm::vec3(0.5, -0.3, 0.5 - 0.5),
-							&trimat );
-	Floor floor( glm::vec3(0.0 - 1.5, -0.7, -0.5 + 1.5), // top left
-				 glm::vec3(0.0 + 1.5, -0.7, -0.5 + 1.5), // top right
-				 glm::vec3(0.0 - 1.5, -0.7, -0.5 - 1.5), // bottom left
-				 glm::vec3(0.0 + 1.5, -0.7, -0.5 - 1.5), // bottom right
+							&trimat,
+							glm::vec2(),
+							glm::vec2(),
+							glm::vec2() );
+
+	Floor floor( glm::vec3(0.0 - 2.5, -0.7, -0.5 - 4.5), // top left : ACTUALLY TOP LEFT
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 - 4.5), // top right : ACTUALLY TOP RIGHT 
+				 glm::vec3(0.0 - 2.5, -0.7, -0.5 + 1.5), // bottom left : ACTUALLY BOTTOM LEFT
+				 glm::vec3(0.75 + 1.5, -0.7, -0.5 + 1.5), // bottom right : ACTUALLY BOTTOM RIGHT
 				 &ground); // color
 
-	SphereLight lightsource( glm::vec3(0.0, 0.5, 0.0), 0.1, glm::vec3(1.0, 1.0, 1.0) );
+	// BoxLight( glm::vec3 top_left, glm::vec3 top_right, glm::vec3 bottom_left, glm::vec3 bottom_right, glm::vec3 color )
+	BoxLight lightsource(	
+		glm::vec3(1.0 - 0.5, 0.7, -0.5 - 0.5),  // top left 
+		glm::vec3(1.0 + 0.5, 0.7, -0.5 - 0.5), // top right
+		glm::vec3(1.0 - 0.5, 0.7, -0.5 + 0.5),  // bottom left
+		glm::vec3(1.0 + 0.5, 0.7, -0.5 + 0.5), // bottom right
+		glm::vec3(1.0, 1.0, 1.0) 				// color
+		);
 	
 	glm::vec3 cam_pos = glm::vec3(0.0, 0.2, 2.0);
 	glm::vec3 look_at = glm::vec3(0.0, 0.0, 0.0);
@@ -121,9 +141,9 @@ int main(int argc, char **argv)
 
 	scene.add_geometry_light( &lightsource );
 	scene.add_object( &floor );
-	//scene.add_object( &fake_light );
 	scene.add_object( &shadow_caster );
-*/
+	*/
+
 
 	/*
 	 * Begin Ray casting main!
@@ -132,7 +152,7 @@ int main(int argc, char **argv)
 	Intersection closest_intersection;
 	double closest_intersect_dist = 0;
 	Object *closest_object = nullptr;
-	uint16_t num_samples = 10;
+	uint16_t num_samples = 5; // MSAA
 
 	std::srand(std::time(nullptr)); 
 
@@ -174,7 +194,7 @@ int main(int argc, char **argv)
 				glm::vec3 color;
 				if ( closest_intersection.exists() )
 				{
-					color = closest_object->get_color(test_ray, closest_intersection, closest_object, 5, 0);
+					color = closest_object->get_color(test_ray, closest_intersection, closest_object, 20, 0);
 				}
 				else
 				{
@@ -189,6 +209,6 @@ int main(int argc, char **argv)
 	}
 
 	// write to image
-	write_to_ppm( filename, pixels );
+	write_to_ppm( filename, pixels, mode );
 	return 0;
 }
